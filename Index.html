@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Budget Ledger</title>
+
+  <!-- iOS Standalone App Metadata -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Budget Ledger">
+  <meta name="theme-color" content="#5c7f66">
+  <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/192/wallet.png">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg-green: #5c7f66;
+      --bg-dots: rgba(35, 59, 41, 0.25);
+      --box-main: #d49b27;
+      --box-inner: #f4cb66;
+      --box-border: #b37f19;
+      --text-dark: #3a2203;
+      --text-muted: #5e3d09;
+      --deposit-green: #14532d;
+      --withdraw-red: #7f1d1d;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-green);
+      background-image: radial-gradient(var(--bg-dots) 1.5px, transparent 1.5px);
+      background-size: 16px 16px;
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 24px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--box-main);
+      border: 1px solid var(--box-border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .title-group h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .title-group p {
+      font-size: 0.85rem;
+      color: #e5ece6;
+    }
+
+    .timeframe-panel {
+      display: flex;
+      gap: 6px;
+      background: var(--box-inner);
+      padding: 5px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      border: 1px solid var(--box-border);
+      overflow-x: auto;
+    }
+
+    .tf-btn {
+      flex: 1;
+      min-width: 65px;
+      padding: 8px 4px;
+      border: none;
+      background: transparent;
+      color: var(--text-dark);
+      font-weight: 700;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .tf-btn.active {
+      background: var(--text-dark);
+      color: #fff;
+    }
+
+    .action-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px;
+      background: var(--box-main);
+      border: 1px solid var(--box-border);
+      border-radius: 10px;
+      color: var(--text-dark);
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: all 0.15s ease;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .action-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .metric-card {
+      background: var(--box-inner);
+      border: 1px solid var(--box-border);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .val-net { color: var(--text-dark); }
+    .val-deposit { color: var(--deposit-green); }
+    .val-withdraw { color: var(--withdraw-red); }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .control-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--box-border);
+      background: #fff;
+      color: #222;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .btn-add {
+      width: 100%;
+      padding: 12px;
+      background: var(--text-dark);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-bottom: 14px;
+    }
+
+    .ledger-header {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .transaction-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tx-item {
+      background: var(--box-inner);
+      border: 1px solid var(--box-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tx-details h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+
+    .tx-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .tx-right {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .tx-amount {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .tx-amount.deposit { color: var(--deposit-green); }
+    .tx-amount.withdraw { color: var(--withdraw-red); }
+
+    .btn-delete {
+      background: #fff;
+      border: 1px solid #c2410c;
+      color: #c2410c;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 999;
+    }
+
+    .modal {
+      background: var(--box-main);
+      border: 2px solid var(--box-border);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .modal h3 {
+      margin-bottom: 14px;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .form-row {
+      margin-bottom: 12px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <header>
+      <div class="title-group">
+        <h1>Budget Ledger</h1>
+        <p>Expenses & Cash Flow</p>
+      </div>
+    </header>
+
+    <div class="timeframe-panel">
+      <button class="tf-btn" onclick="setTimeframe('daily')">Daily</button>
+      <button class="tf-btn" onclick="setTimeframe('weekly')">Weekly</button>
+      <button class="tf-btn active" onclick="setTimeframe('monthly')">Monthly</button>
+      <button class="tf-btn" onclick="setTimeframe('yearly')">Yearly</button>
+      <button class="tf-btn" onclick="setTimeframe('all')">All-Time</button>
+    </div>
+
+    <div class="action-toolbar">
+      <button id="btn-undo" class="action-btn" onclick="handleUndo()" disabled>
+        <i data-lucide="undo-2" style="width:16px; height:16px;"></i> Undo
+      </button>
+      <button id="btn-redo" class="action-btn" onclick="handleRedo()" disabled>
+        <i data-lucide="redo-2" style="width:16px; height:16px;"></i> Redo
+      </button>
+      <button class="action-btn" onclick="handleClearAll()" style="color: var(--withdraw-red);">
+        <i data-lucide="trash-2" style="width:16px; height:16px;"></i> Clear All
+      </button>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Net Balance</div>
+        <div id="metric-net" class="metric-value val-net">$0.00</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Deposits (+)</div>
+        <div id="metric-deposit" class="metric-value val-deposit">+$0.00</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Withdrawals (-)</div>
+        <div id="metric-withdraw" class="metric-value val-withdraw">-$0.00</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn-add" onclick="openEntryModal()">
+        <i data-lucide="plus-circle" style="width:18px; height:18px;"></i> Add New Transaction
+      </button>
+
+      <div class="controls-grid">
+        <div class="control-group">
+          <label for="filter-type">Filter Dropbox</label>
+          <select id="filter-type" onchange="renderLedger()">
+            <option value="all">All Items</option>
+            <option value="withdrawal">Withdrawals Only</option>
+            <option value="deposit">Deposits Only</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="sort-order">Sort Dropbox</label>
+          <select id="sort-order" onchange="renderLedger()">
+            <option value="newest">Date: Newest First</option>
+            <option value="oldest">Date: Oldest First</option>
+            <option value="highest">Amount: High to Low</option>
+            <option value="lowest">Amount: Low to High</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ledger-header">
+        <span>Itemized Ledger</span>
+        <span id="ledger-count" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">0 entries</span>
+      </div>
+
+      <div id="transaction-list" class="transaction-list"></div>
+    </div>
+  </div>
+
+  <div id="entry-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h3>Add Transaction</h3>
+      <form onsubmit="handleSaveEntry(event)">
+        <div class="form-row">
+          <label>Transaction Type</label>
+          <select id="modal-type" required>
+            <option value="withdrawal">Withdrawal (-)</option>
+            <option value="deposit">Deposit (+)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Item Description</label>
+          <input type="text" id="modal-desc" placeholder="e.g. Grocery Store, Electric Bill" required>
+        </div>
+        <div class="form-row">
+          <label>Amount ($)</label>
+          <input type="number" id="modal-amount" step="0.01" min="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-row">
+          <label>Date</label>
+          <input type="date" id="modal-date" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="action-btn" onclick="closeEntryModal()">Cancel</button>
+          <button type="submit" class="action-btn" style="background: var(--text-dark); color: #fff;">Save Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+    const defaultData = [
+      { id: "1", type: "deposit", desc: "Paycheck Deposit", amount: 2400.00, date: new Date().toISOString().split("T")[0] },
+      { id: "2", type: "withdrawal", desc: "Supermarket Groceries", amount: 134.50, date: new Date().toISOString().split("T")[0] },
+      { id: "3", type: "withdrawal", desc: "Utility Bill", amount: 82.20, date: new Date(Date.now() - 86400000).toISOString().split("T")[0] }
+    ];
+
+    let transactions = JSON.parse(localStorage.getItem("app_budget_tx") || "null") || defaultData;
+    let historyStack = [];
+    let redoStack = [];
+    let currentTimeframe = "monthly";
+
+    function pushHistory() {
+      historyStack.push(JSON.stringify(transactions));
+      redoStack = [];
+      updateActionButtons();
+    }
+
+    function updateActionButtons() {
+      document.getElementById("btn-undo").disabled = historyStack.length === 0;
+      document.getElementById("btn-redo").disabled = redoStack.length === 0;
+    }
+
+    function handleUndo() {
+      if (historyStack.length === 0) return;
+      redoStack.push(JSON.stringify(transactions));
+      transactions = JSON.parse(historyStack.pop());
+      saveAndSync();
+    }
+
+    function handleRedo() {
+      if (redoStack.length === 0) return;
+      historyStack.push(JSON.stringify(transactions));
+      transactions = JSON.parse(redoStack.pop());
+      saveAndSync();
+    }
+
+    function handleClearAll() {
+      if (transactions.length === 0) return;
+      if (confirm("Clear all entries? You can restore them using the Undo button.")) {
+        pushHistory();
+        transactions = [];
+        saveAndSync();
+      }
+    }
+
+    function deleteEntry(id) {
+      pushHistory();
+      transactions = transactions.filter(t => t.id !== id);
+      saveAndSync();
+    }
+
+    function saveAndSync() {
+      localStorage.setItem("app_budget_tx", JSON.stringify(transactions));
+      updateActionButtons();
+      calculateTotals();
+      renderLedger();
+    }
+
+    function setTimeframe(tf) {
+      currentTimeframe = tf;
+      document.querySelectorAll(".tf-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.textContent.toLowerCase().includes(tf));
+      });
+      calculateTotals();
+      renderLedger();
+    }
+
+    function matchesTimeframe(dateStr) {
+      if (currentTimeframe === "all") return true;
+      const txDate = new Date(dateStr + "T00:00:00");
+      const now = new Date();
+      if (currentTimeframe === "daily") {
+        return txDate.toDateString() === now.toDateString();
+      }
+      if (currentTimeframe === "weekly") {
+        const diff = (now - txDate) / (1000 * 60 * 60 * 24);
+        return diff >= 0 && diff <= 7;
+      }
+      if (currentTimeframe === "monthly") {
+        return txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
+      }
+      if (currentTimeframe === "yearly") {
+        return txDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    }
+
+    function calculateTotals() {
+      let deposits = 0;
+      let withdrawals = 0;
+
+      transactions.filter(t => matchesTimeframe(t.date)).forEach(t => {
+        if (t.type === "deposit") deposits += t.amount;
+        else withdrawals += t.amount;
+      });
+
+      const net = deposits - withdrawals;
+      document.getElementById("metric-deposit").textContent = `+$${deposits.toFixed(2)}`;
+      document.getElementById("metric-withdraw").textContent = `-$${withdrawals.toFixed(2)}`;
+      document.getElementById("metric-net").textContent = `$${net.toFixed(2)}`;
+    }
+
+    function renderLedger() {
+      const listEl = document.getElementById("transaction-list");
+      const filterType = document.getElementById("filter-type").value;
+      const sortOrder = document.getElementById("sort-order").value;
+
+      let items = transactions.filter(t => matchesTimeframe(t.date));
+
+      if (filterType !== "all") {
+        items = items.filter(t => t.type === filterType);
+      }
+
+      items.sort((a, b) => {
+        if (sortOrder === "newest") return new Date(b.date) - new Date(a.date);
+        if (sortOrder === "oldest") return new Date(a.date) - new Date(b.date);
+        if (sortOrder === "highest") return b.amount - a.amount;
+        if (sortOrder === "lowest") return a.amount - b.amount;
+        return 0;
+      });
+
+      document.getElementById("ledger-count").textContent = `${items.length} entries`;
+      listEl.innerHTML = "";
+
+      if (items.length === 0) {
+        listEl.innerHTML = `<p style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No transactions match your selection.</p>`;
+        return;
+      }
+
+      items.forEach(t => {
+        const row = document.createElement("div");
+        row.className = "tx-item";
+        row.innerHTML = `
+          <div class="tx-details">
+            <h4>${t.desc}</h4>
+            <div class="tx-meta">${t.date} &bull; ${t.type.toUpperCase()}</div>
+          </div>
+          <div class="tx-right">
+            <span class="tx-amount ${t.type}">
+              ${t.type === "deposit" ? "+" : "-"}$${t.amount.toFixed(2)}
+            </span>
+            <button class="btn-delete" onclick="deleteEntry('${t.id}')">Delete</button>
+          </div>
+        `;
+        listEl.appendChild(row);
+      });
+    }
+
+    function openEntryModal() {
+      document.getElementById("modal-date").value = new Date().toISOString().split("T")[0];
+      document.getElementById("modal-desc").value = "";
+      document.getElementById("modal-amount").value = "";
+      document.getElementById("entry-modal").classList.remove("hidden");
+    }
+
+    function closeEntryModal() {
+      document.getElementById("entry-modal").classList.add("hidden");
+    }
+
+    function handleSaveEntry(e) {
+      e.preventDefault();
+      const type = document.getElementById("modal-type").value;
+      const desc = document.getElementById("modal-desc").value.trim();
+      const amount = parseFloat(document.getElementById("modal-amount").value);
+      const date = document.getElementById("modal-date").value;
+
+      if (!desc || isNaN(amount) || !date) return;
+
+      pushHistory();
+      transactions.unshift({
+        id: Date.now().toString(),
+        type,
+        desc,
+        amount,
+        date
+      });
+
+      closeEntryModal();
+      saveAndSync();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      calculateTotals();
+      renderLedger();
+      updateActionButtons();
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
