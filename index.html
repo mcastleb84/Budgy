@@ -51,7 +51,6 @@
       letter-spacing: -0.5px;
     }
 
-    /* Ledger Switcher Bar */
     .ledger-bar {
       display: flex;
       gap: 8px;
@@ -85,7 +84,7 @@
     button {
       cursor: pointer;
       font-weight: 500;
-      transition: background 0.15s ease;
+      transition: opacity 0.15s ease;
     }
 
     button:hover {
@@ -95,6 +94,7 @@
     .btn-primary {
       background: var(--accent);
       border-color: var(--accent);
+      color: #fff;
     }
 
     .btn-danger {
@@ -103,7 +103,6 @@
       color: var(--danger);
     }
 
-    /* Balance Card */
     .summary-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -128,7 +127,6 @@
       margin-top: 4px;
     }
 
-    /* Form */
     .entry-form {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -149,13 +147,13 @@
       flex: 1;
     }
 
-    /* Transactions List */
     .transactions {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 10px;
       overflow: hidden;
       margin-bottom: 24px;
+      min-height: 50px;
     }
 
     .transaction-row {
@@ -175,4 +173,377 @@
       font-weight: 500;
     }
 
-    .tx-
+    .tx-date {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .tx-amount {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .income { color: var(--success); }
+    .expense { color: var(--text); }
+
+    .tx-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+      padding: 2px 8px;
+      line-height: 1;
+    }
+
+    .btn-delete:hover {
+      color: var(--danger);
+    }
+
+    .action-suite {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .action-suite button {
+      flex: 1 1 calc(33.33% - 8px);
+      text-align: center;
+      background: #192131;
+      font-size: 0.85rem;
+      padding: 10px;
+    }
+
+    .reset-link {
+      display: block;
+      margin-top: 24px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      width: 100%;
+      text-decoration: underline;
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+        padding: 0;
+      }
+      .ledger-bar, .entry-form, .action-suite, .btn-delete, header button, .reset-link {
+        display: none !important;
+      }
+      .summary-card, .transactions {
+        border: 1px solid #ddd !important;
+        background: #fff !important;
+      }
+      .balance-val, .tx-desc, .tx-amount, .tx-date {
+        color: #000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Budges</h1>
+    <button type="button" class="btn-danger" id="deleteLedgerBtn" style="font-size: 0.8rem; padding: 6px 10px;">Delete Ledger</button>
+  </header>
+
+  <div class="ledger-bar">
+    <select id="ledgerSelect" class="ledger-select">
+      <option value="Personal">Personal</option>
+    </select>
+    <button type="button" id="newLedgerBtn" class="btn-primary">+ New</button>
+  </div>
+
+  <div class="summary-card">
+    <div>
+      <div class="balance-label">Current Balance</div>
+      <div class="balance-val" id="totalBalance">$0.00</div>
+    </div>
+    <div style="text-align: right;">
+      <div class="balance-label" id="ledgerTxCount">0 Transactions</div>
+    </div>
+  </div>
+
+  <form id="entryForm" class="entry-form">
+    <input type="text" id="descInput" placeholder="Description (e.g., Coffee, Salary)" required autocomplete="off" />
+    <div class="form-row">
+      <input type="number" id="amountInput" step="any" placeholder="Amount (- for expense)" required inputmode="decimal" />
+      <button type="submit" class="btn-primary" style="min-width: 100px;">Add Entry</button>
+    </div>
+  </form>
+
+  <div class="transactions" id="txContainer">
+    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+      Loading transactions...
+    </div>
+  </div>
+
+  <div class="action-suite">
+    <button type="button" id="printBtn">🖨️ Print</button>
+    <button type="button" id="csvBtn">📥 Save CSV</button>
+    <button type="button" id="emailBtn">✉️ Email</button>
+    <button type="button" id="smsBtn">💬 Text / SMS</button>
+    <button type="button" id="shareBtn">🔗 Native Share</button>
+  </div>
+
+  <button type="button" class="reset-link" id="resetAllBtn">Reset corrupted data</button>
+</div>
+
+<script>
+  const STORAGE_KEY = 'budges_ledger_data_v2';
+
+  const defaultState = {
+    activeLedger: 'Personal',
+    ledgers: {
+      'Personal': [
+        { id: 1, desc: 'Opening Balance', amount: 500.00, date: new Date().toLocaleDateString() }
+      ]
+    }
+  };
+
+  let appData;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    appData = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(defaultState));
+    if (!appData || typeof appData !== 'object' || !appData.ledgers || typeof appData.ledgers !== 'object') {
+      appData = JSON.parse(JSON.stringify(defaultState));
+    }
+    const ledgerKeys = Object.keys(appData.ledgers);
+    if (ledgerKeys.length === 0) {
+      appData = JSON.parse(JSON.stringify(defaultState));
+    } else if (!appData.ledgers[appData.activeLedger]) {
+      appData.activeLedger = ledgerKeys[0];
+    }
+  } catch (err) {
+    appData = JSON.parse(JSON.stringify(defaultState));
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    } catch (e) {
+      console.error('Storage full or blocked', e);
+    }
+  }
+
+  const ledgerSelect = document.getElementById('ledgerSelect');
+  const newLedgerBtn = document.getElementById('newLedgerBtn');
+  const deleteLedgerBtn = document.getElementById('deleteLedgerBtn');
+  const totalBalance = document.getElementById('totalBalance');
+  const ledgerTxCount = document.getElementById('ledgerTxCount');
+  const txContainer = document.getElementById('txContainer');
+  const entryForm = document.getElementById('entryForm');
+  const descInput = document.getElementById('descInput');
+  const amountInput = document.getElementById('amountInput');
+  const resetAllBtn = document.getElementById('resetAllBtn');
+
+  function formatMoney(num) {
+    const val = Number(num) || 0;
+    return (val < 0 ? '-' : '') + '$' + Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function renderLedgerDropdown() {
+    ledgerSelect.innerHTML = '';
+    const names = Object.keys(appData.ledgers);
+    names.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === appData.activeLedger) opt.selected = true;
+      ledgerSelect.appendChild(opt);
+    });
+  }
+
+  function renderLedgerView() {
+    const list = appData.ledgers[appData.activeLedger] || [];
+    txContainer.innerHTML = '';
+
+    let balance = 0;
+
+    if (list.length === 0) {
+      txContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.9rem;">No transactions recorded. Add one above.</div>';
+    } else {
+      list.forEach((item, index) => {
+        const amt = Number(item.amount) || 0;
+        balance += amt;
+
+        const row = document.createElement('div');
+        row.className = 'transaction-row';
+        row.innerHTML = `
+          <div>
+            <div class="tx-desc">${item.desc || 'Entry'}</div>
+            <div class="tx-date">${item.date || ''}</div>
+          </div>
+          <div class="tx-actions">
+            <span class="tx-amount ${amt >= 0 ? 'income' : 'expense'}">${formatMoney(amt)}</span>
+            <button type="button" class="btn-delete" data-index="${index}" title="Remove">&times;</button>
+          </div>
+        `;
+        txContainer.appendChild(row);
+      });
+    }
+
+    totalBalance.textContent = formatMoney(balance);
+    totalBalance.style.color = balance < 0 ? 'var(--danger)' : 'var(--text)';
+    ledgerTxCount.textContent = `${list.length} Item${list.length === 1 ? '' : 's'}`;
+  }
+
+  ledgerSelect.addEventListener('change', (e) => {
+    appData.activeLedger = e.target.value;
+    saveData();
+    renderLedgerView();
+  });
+
+  newLedgerBtn.addEventListener('click', () => {
+    const name = window.prompt('Enter name for the new ledger:');
+    if (name && name.trim()) {
+      const cleanName = name.trim();
+      if (!appData.ledgers[cleanName]) {
+        appData.ledgers[cleanName] = [];
+        appData.activeLedger = cleanName;
+        saveData();
+        renderLedgerDropdown();
+        renderLedgerView();
+      } else {
+        alert('A ledger with that name already exists.');
+      }
+    }
+  });
+
+  deleteLedgerBtn.addEventListener('click', () => {
+    const names = Object.keys(appData.ledgers);
+    if (names.length <= 1) {
+      alert('You must keep at least one active ledger.');
+      return;
+    }
+    if (confirm(`Delete the "${appData.activeLedger}" ledger?`)) {
+      delete appData.ledgers[appData.activeLedger];
+      appData.activeLedger = Object.keys(appData.ledgers)[0];
+      saveData();
+      renderLedgerDropdown();
+      renderLedgerView();
+    }
+  });
+
+  entryForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const desc = descInput.value.trim();
+    const amt = parseFloat(amountInput.value);
+
+    if (desc && !isNaN(amt)) {
+      if (!appData.ledgers[appData.activeLedger]) {
+        appData.ledgers[appData.activeLedger] = [];
+      }
+      appData.ledgers[appData.activeLedger].push({
+        id: Date.now(),
+        desc: desc,
+        amount: amt,
+        date: new Date().toLocaleDateString()
+      });
+      saveData();
+      renderLedgerView();
+      descInput.value = '';
+      amountInput.value = '';
+    }
+  });
+
+  txContainer.addEventListener('click', (e) => {
+    const target = e.target.closest('.btn-delete');
+    if (target) {
+      const idx = parseInt(target.getAttribute('data-index'), 10);
+      if (!isNaN(idx) && appData.ledgers[appData.activeLedger]) {
+        appData.ledgers[appData.activeLedger].splice(idx, 1);
+        saveData();
+        renderLedgerView();
+      }
+    }
+  });
+
+  resetAllBtn.addEventListener('click', () => {
+    if (confirm('Reset all ledger data back to defaults?')) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('budges_ledger_data_v1');
+      appData = JSON.parse(JSON.stringify(defaultState));
+      saveData();
+      renderLedgerDropdown();
+      renderLedgerView();
+    }
+  });
+
+  function generateTextSummary() {
+    const list = appData.ledgers[appData.activeLedger] || [];
+    let text = `Ledger: ${appData.activeLedger}\n`;
+    text += `Total: ${totalBalance.textContent}\n`;
+    text += `-------------------------\n`;
+    list.forEach(i => {
+      text += `${i.date} | ${i.desc} | ${formatMoney(i.amount)}\n`;
+    });
+    return text;
+  }
+
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  document.getElementById('csvBtn').addEventListener('click', () => {
+    const list = appData.ledgers[appData.activeLedger] || [];
+    let csv = "Date,Description,Amount\n";
+    list.forEach(i => {
+      const cleanDesc = (i.desc || '').replace(/"/g, '""');
+      csv += `"${i.date}","${cleanDesc}",${i.amount}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${appData.activeLedger}_ledger.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('emailBtn').addEventListener('click', () => {
+    const body = encodeURIComponent(generateTextSummary());
+    const subject = encodeURIComponent(`Budges Summary - ${appData.activeLedger}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  });
+
+  document.getElementById('smsBtn').addEventListener('click', () => {
+    const body = encodeURIComponent(generateTextSummary());
+    window.location.href = `sms:?&body=${body}`;
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    const textData = generateTextSummary();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Budges: ${appData.activeLedger}`,
+          text: textData
+        });
+      } catch (err) {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(textData);
+        alert('Summary copied to clipboard!');
+      } catch (e) {
+        alert('Sharing is not supported on this browser.');
+      }
+    }
+  });
+
+  // Safe initial execution
+  renderLedgerDropdown();
+  renderLedgerView();
+</script>
+</body>
+</html>
